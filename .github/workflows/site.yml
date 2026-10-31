@@ -1,0 +1,66 @@
+name: site-health
+# 每天体检 ipx.al：页面、查询源、探针节点、风险库接口。有问题开 issue「站点体检异常」，恢复后自动关闭。
+on:
+  schedule:
+    - cron: '53 1 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: write
+  issues: write
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env: { GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}", R: "${{ github.repository }}" }
+    steps:
+      - name: keepalive
+        run: gh api -X PUT repos/$R/actions/workflows/site.yml/enable || true
+      - name: check
+        run: |
+          cat > c.py <<'PY'
+          import json, random, urllib.request
+          UA = {'user-agent': 'Mozilla/5.0 (site-health) Chrome/130'}
+          def get(p, t=40):
+              r = urllib.request.urlopen(urllib.request.Request('https://ipx.al' + p, headers=UA), timeout=t)
+              return r.status, r.read()
+          bad = []
+          for p in ['/', '/split', '/dns', '/ai', '/stream', '/risk', '/api', '/about', '/learn', '/AS13335']:
+              try:
+                  s, b = get(p)
+                  if s != 200 or len(b) < 5000: bad.append(f'页面 {p} 返回 {s}，{len(b)} 字节')
+              except Exception as e: bad.append(f'页面 {p} 打不开：{e}')
+          # 查询源：随机 3 个公网 IP（避开缓存），某源 3 次都缺才报
+          EXPECT = ['MaxMind GeoLite', 'IPinfo', 'IP.SB', 'ipapi.is', 'IPQuery', 'IP-API', 'IPLocate', 'iplocation.net']
+          seen = {}
+          for _ in range(3):
+              ip = f'{random.choice([1, 8, 9, 23, 45, 66, 77, 89, 104, 151, 185, 203])}.{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)}'
+              try:
+                  d = json.loads(get('/api/report/' + ip)[1])
+                  for s in d.get('sources', []): seen[s['name']] = seen.get(s['name'], 0) + 1
+              except Exception as e: bad.append(f'报告接口 {ip} 失败：{e}')
+          miss = [n for n in EXPECT if not seen.get(n)]
+          if miss: bad.append('3 次查询都缺的来源：' + '、'.join(miss))
+          # 探针
+          try:
+              d = json.loads(get('/api/ping/1.1.1.1')[1])
+              if d.get('supported') is False: bad.append('多地延迟未启用（PROBE_KEY 缺失？）')
+              for n in d.get('nodes', []):
+                  if n.get('error') or not (n.get('ping') or {}).get('avg'): bad.append(f"探针 {n['id']}（{n['name']}）不通：{n.get('error') or 'ping 1.1.1.1 无响应'}")
+          except Exception as e: bad.append(f'探针接口失败：{e}')
+          # 风险库
+          try:
+              d = json.loads(get('/api/risk/185.220.101.1')[1])
+              if not (d.get('library') or {}).get('listed'): bad.append('风险库接口没有命中已知 Tor 出口 185.220.101.1')
+          except Exception as e: bad.append(f'风险库接口失败：{e}')
+          open('msg.txt', 'w').write('\n'.join('- ' + b for b in bad))
+          print('\n'.join(bad) or 'all good')
+          PY
+          python3 c.py
+          T="站点体检异常"
+          open=$(gh issue list -R $R --state open --search "$T in:title" --json number -q '.[0].number')
+          if [ -s msg.txt ]; then
+            printf '%s\n\n体检记录：%s\n' "$(cat msg.txt)" "${{ github.server_url }}/$R/actions/runs/${{ github.run_id }}" > body.txt
+            [ -z "$open" ] && gh issue create -R $R -t "$T" -F body.txt || gh issue comment "$open" -R $R -F body.txt
+          elif [ -n "$open" ]; then
+            gh issue close "$open" -R $R -c "已恢复：今天体检全部通过。"
+          fi
