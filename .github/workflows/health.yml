@@ -1,0 +1,36 @@
+name: data-health
+# 每天检查一次：data 分支超过 26 小时没更新、或有来源抓取失败/为空，就开 issue（GitHub 会通知仓库所有者）；恢复后自动关闭。
+on:
+  schedule:
+    - cron: '41 1 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: write
+  issues: write
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env: { GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}", R: "${{ github.repository }}" }
+    steps:
+      - name: keepalive
+        run: |
+          gh api -X PUT repos/$R/actions/workflows/risk.yml/enable || true
+          gh api -X PUT repos/$R/actions/workflows/health.yml/enable || true
+      - name: check freshness and sources
+        run: |
+          set -e
+          last=$(gh api repos/$R/commits/data -q .commit.committer.date)
+          age=$(( ( $(date -u +%s) - $(date -u -d "$last" +%s) ) / 3600 ))
+          bad=$(curl -fsSL https://raw.githubusercontent.com/$R/data/risk.json | python3 -c "import json,sys; d=json.load(sys.stdin); print(', '.join(s['name'] for s in d['sources'] if s.get('error') or not s.get('count')))")
+          msg=""
+          [ "$age" -gt 26 ] && msg="data 分支已 ${age} 小时未更新（上次 ${last}）。"
+          [ -n "$bad" ] && msg="$msg 抓取失败或为空的来源：${bad}。"
+          T="风险库数据异常"
+          open=$(gh issue list -R $R --state open --search "$T in:title" --json number -q '.[0].number')
+          if [ -n "$msg" ]; then
+            echo "$msg"
+            [ -z "$open" ] && gh issue create -R $R -t "$T" -b "$msg 检查记录：${{ github.server_url }}/$R/actions/runs/${{ github.run_id }}" || gh issue comment "$open" -R $R -b "$msg"
+          elif [ -n "$open" ]; then
+            gh issue close "$open" -R $R -c "已恢复：${age} 小时前更新，所有来源正常。"
+          fi
