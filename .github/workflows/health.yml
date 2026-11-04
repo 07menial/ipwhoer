@@ -18,6 +18,8 @@ jobs:
           gh api -X PUT repos/$R/actions/workflows/risk.yml/enable || true
           gh api -X PUT repos/$R/actions/workflows/health.yml/enable || true
           gh api -X PUT repos/$R/actions/workflows/site.yml/enable || true
+          gh api -X PUT repos/$R/actions/workflows/quota.yml/enable || true
+          gh api -X PUT repos/$R/actions/workflows/arin.yml/enable || true
       - name: check freshness and sources
         run: |
           set -e
