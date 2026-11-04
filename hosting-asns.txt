@@ -94,3 +94,17 @@
 23961  # Misaka Network (Asia)
 917  # Misaka.io
 44486  # SYNLINQ
+56740  # DataHata
+49556  # Web Dadeh Paydar
+206996  # ZAP-Hosting
+202422  # G-Core Labs
+213394  # Clever Cloud
+36236  # NetActuate
+8283  # Coloclue
+60404  # Liteserver
+34689  # hosteroid
+34927  # iFog
+21100  # ITLDC
+44973  # Rechenzentrum Hassfurt
+38856  # Walks Cloud
+203993  # GNA-DC1
