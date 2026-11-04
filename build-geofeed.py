@@ -31,7 +31,7 @@ DBS = [
 DIRECT = [
     'https://digitalocean.com/geo/google.csv',
     'https://geoip.linode.com/',
-    'https://geofeed.constant.com/?text',
+    'https://geofeed.constant.com/',  # ?text 只给前缀不带位置（2026-11-05 发现），用 CSV 版
     'https://www.gstatic.com/ipranges/cloud_geofeed',
     'https://geoip.starlinkisp.net/feed.csv',
 ]
