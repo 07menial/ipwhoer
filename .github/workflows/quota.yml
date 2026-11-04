@@ -22,7 +22,7 @@ jobs:
               i=v.get('pausedInfo') or {}
               if v.get('paused') and i.get('at'):
                   at=dt.datetime.fromisoformat(i['at'].replace('Z','+00:00')).astimezone(dt.timezone(dt.timedelta(hours=8)))
-                  out.append(f\"{k}：{at:%m-%d %H:%M} 北京时间用完（{i.get('why','')[:60]}），已自动切到免 key/跳过，{i.get('until','')[:16]}Z 恢复\")
+                  out.append(f\"{k}：{at:%m-%d %H:%M} 北京时间发现额度用完（{i.get('why','')[:60]}），已自动切到免 key/跳过，{i.get('until','')[:16]}Z 恢复\")
           print('；'.join(out))") || msg=""
           T="API 额度用完"
           open=$(gh issue list -R $R --state open --search "$T in:title" --json number -q '.[0].number')
