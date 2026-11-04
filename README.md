@@ -10,3 +10,6 @@
 
 ## ipx 机房段库（build-dc.py）
 每 6 小时随风险库一起重建，只发布结论区间（`dc.csv` 人可读）。来源：AWS / Google Cloud / Oracle / Cloudflare 官方段，DigitalOcean / Linode / Vultr geofeed，RIPE RIS riswhois 路由表，`hosting-asns.txt`（人工整理），PeeringDB 主类型为 Content 的网络（排除 `not-hosting.txt`）。误判请提 issue，或直接 PR 修改这两个名单。
+
+## ipx 地理层（build-geofeed.py）
+每天重建一次。收集网络运营商自己声明的 RFC 8805 geofeed：DigitalOcean / Linode / Vultr / Google Cloud / Starlink 官方 feed，加上 RIPE、APNIC、AFRINIC、LACNIC whois 里 inetnum 挂的 `geofeed:`。whois 来的条目只接受落在引用它的 inetnum 范围内的（RFC 9632）。ARIN 没有公开批量库，暂缺。
