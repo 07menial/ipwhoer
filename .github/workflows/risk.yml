@@ -22,6 +22,9 @@ jobs:
       - name: build datacenter ranges (ipx 机房段库)
         continue-on-error: true
         run: python3 build-dc.py risk-data
+      - name: build VPN / relay exit library (ipx VPN 出口库)
+        continue-on-error: true
+        run: python3 build-vpn.py risk-data
       - name: build geofeed layer (ipx 地理层，每天一次)
         continue-on-error: true
         timeout-minutes: 30
@@ -38,6 +41,7 @@ jobs:
           - `sources.csv`：区间、命中来源、首次出现日期（人可读）
           - `risk.bin`：每条 16 字节小端 start,end,mask,first（ipx.al 线上查询用）
           - `risk.json`：来源列表、条数、构建时间
+          - `vpn.bin` / `vpn6.bin` / `vpn.json`：ipx VPN 出口库，Mullvad、NordVPN、PIA、IVPN、Surfshark 官方公布的服务器 IP 和 iCloud 专用代理出口表，说明见 build-vpn.py
           - `gf.bin` / `gf6.bin` / `gf.json` / `geofeed-urls.csv`：ipx 地理层，运营商自报的 RFC 8805 geofeed（按 RFC 9632 校验授权），说明见 build-geofeed.py
           - `dc.bin` / `dc.json` / `dc.csv`：ipx 机房段库（IPv4），云厂商官方段 + RIPE RIS 路由 + 人工机房 ASN + PeeringDB Content，说明见 build-dc.py
           来源与许可见 https://ipx.al/risk 。纠错请提 issue。

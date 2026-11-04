@@ -2,7 +2,7 @@
 """ipx 自有机房段库（IPv4，第一版）。每天由 GitHub Actions 重建，只输出结论区间。
 
 来源（全部公开）：
-  云厂商官方段：AWS ip-ranges.json、Google Cloud cloud.json、Oracle Cloud、Cloudflare ips-v4、
+  云厂商官方段：AWS ip-ranges.json、Google Cloud cloud.json、Oracle Cloud、Cloudflare ips-v4/v6、Fastly public-ip-list、
                DigitalOcean / Linode(Akamai) / Vultr 的 RFC 8805 geofeed
   路由：RIPE RIS riswhois（前缀 → 起源 ASN，至少 10 个对等体看到才算）
   机房 ASN：hosting-asns.txt（人工整理，与 ipx.al 的 HOSTING_ASNS 同步）
@@ -50,6 +50,7 @@ def cloud():
     out += [(p.get('ipv4Prefix') or p.get('ipv6Prefix'), 'Google Cloud') for p in j['prefixes'] if p.get('ipv4Prefix') or p.get('ipv6Prefix')]
     j = json.loads(get('https://docs.oracle.com/en-us/iaas/tools/public_ip_ranges.json'))
     out += [(c['cidr'], 'Oracle Cloud') for r in j['regions'] for c in r['cidrs']]
+    out += [(c, 'Fastly') for k in ('addresses', 'ipv6_addresses') for c in json.loads(get('https://api.fastly.com/public-ip-list')).get(k, [])]
     out += [(l, 'Cloudflare') for v in ('v4', 'v6') for l in get(f'https://www.cloudflare.com/ips-{v}').decode().split()]
     for url, name in [('https://digitalocean.com/geo/google.csv', 'DigitalOcean'),
                       ('https://geoip.linode.com/', 'Linode'),
