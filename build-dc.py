@@ -165,6 +165,7 @@ def main():
             meta.update({'ranges': stats['ranges'], 'addresses': stats['addresses']})  # v1 字段保持兼容
         meta['v%d' % ver] = stats
     meta['counts'] = {'manual_asns': len(manual), 'pdb_content_asns': len(content)}
+    meta['hosting_asns'] = sorted(manual)  # ipx.al Worker 每小时读这份名单作为 HOSTING_ASNS（唯一来源）
     json.dump(meta, open(os.path.join(OUT, 'dc.json'), 'w'), ensure_ascii=False)
     print(json.dumps({k: v for k, v in meta.items() if k != 'providers'}, ensure_ascii=False), 'providers', len(provs))
 

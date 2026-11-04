@@ -17,6 +17,7 @@ jobs:
           mkdir -p risk-data
           git fetch --depth=1 origin data && git --work-tree=risk-data checkout origin/data -- . || true
           git reset -q
+          mkdir -p prev && cp risk-data/dc* risk-data/gf* risk-data/geofeed-urls.csv risk-data/vpn* prev/ 2>/dev/null || true
       - name: build
         run: python3 build-risk.py risk-data
       - name: build datacenter ranges (ipx 机房段库)
@@ -32,6 +33,8 @@ jobs:
           if [ "$(date -u +%H)" = "00" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ ! -f risk-data/gf.bin ]; then
             python3 build-geofeed.py risk-data
           fi
+      - name: quality gate (离线把关：条数骤降或样本命中率异常的层继续用上一版)
+        run: python3 check-data.py risk-data prev eval/atlas.tsv
       - name: publish orphan data branch
         run: |
           cd risk-data
@@ -50,6 +53,15 @@ jobs:
           git -c user.name=ipx-bot -c user.email=actions@users.noreply.github.com add -A
           git -c user.name=ipx-bot -c user.email=actions@users.noreply.github.com commit -qm "risk data $(date -u +%FT%TZ)"
           git push -fq "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" data
+      - name: report quality gate
+        env: { GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}", R: "${{ github.repository }}" }
+        run: |
+          T="数据质量检查拦截"
+          open=$(gh issue list -R $R --state open --search "$T in:title" --json number -q '.[0].number')
+          if [ -s check.txt ]; then
+            msg="$(cat check.txt) 记录：${{ github.server_url }}/$R/actions/runs/${{ github.run_id }}"
+            [ -z "$open" ] && gh issue create -R $R -t "$T" -b "$msg" || gh issue comment "$open" -R $R -b "$msg"
+          elif [ -n "$open" ]; then gh issue close "$open" -R $R -c "最新一次构建已通过检查。"; fi
       - name: keepalive (reset GitHub's 60-day inactivity timer)
         if: always()
         env: { GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
