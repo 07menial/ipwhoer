@@ -16,3 +16,7 @@
 
 ## ipx VPN 出口库（build-vpn.py）
 每 6 小时重建。只收 VPN 服务商自己公开的服务器地址（Mullvad、NordVPN、Private Internet Access 的官方 API，IVPN、Surfshark 的官方主机名），以及苹果公开的 iCloud 专用代理出口表。不转载第三方 VPN 名单。
+
+
+## ARIN 区 geofeed
+ARIN 没有公开批量 whois。`discover-arin.py` 每周逐块查 rdap.arin.net（约 9 万块，分批续跑），把 NetRange 上的 `Geofeed:` 备注写进 `arin` 分支的 `arin.tsv`；`build-geofeed.py` 读取后按 NetRange 范围校验授权。只覆盖直接分配层。

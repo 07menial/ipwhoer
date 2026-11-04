@@ -3,7 +3,8 @@
 
 0. 几家云厂商和 Starlink 直接公布的 geofeed（见 DIRECT）。
 1. 从 RIPE、APNIC、AFRINIC、LACNIC 的公开 whois 库里找 inetnum / inet6num 上的
-   `geofeed:` 属性或 `remarks: Geofeed <url>`（RFC 9632）。ARIN 没有公开批量库，暂缺。
+   `geofeed:` 属性或 `remarks: Geofeed <url>`（RFC 9632）。
+   ARIN 没有公开批量库：discover-arin.py 逐块查 RDAP，结果在 arin 分支的 arin.tsv，这里读进来。
 2. 抓取每个 geofeed 文件，只接受落在「引用它的那条 inetnum」范围内的条目（RFC 9632 的授权规则），
    防止有人在自己的文件里声明别人的地址。
 3. 更具体的前缀覆盖更宽的前缀，输出区间表。
@@ -34,6 +35,7 @@ DIRECT = [
     'https://www.gstatic.com/ipranges/cloud_geofeed',
     'https://geoip.starlinkisp.net/feed.csv',
 ]
+ARIN_TSV = 'https://raw.githubusercontent.com/yehyakin/ipx-al-data/arin/arin.tsv'
 URL_RE = re.compile(r'https://\S+', re.I)
 MAX_FEED = 30 * 1024 * 1024
 
@@ -100,6 +102,26 @@ def main():
         except Exception as e:
             stats[u.rsplit('/', 1)[-1]] = f'error: {e}'
         print('scanned', u, stats.get(u.rsplit('/', 1)[-1]), 'urls', len(refs), flush=True)
+
+    try:
+        raw = urllib.request.urlopen(urllib.request.Request(ARIN_TSV, headers=UA), timeout=120).read().decode()
+        n = 0
+        for l in raw.splitlines():
+            p = l.split('\t')
+            if len(p) != 5 or l.startswith('#') or not p[4]:
+                continue
+            try:
+                a, b = ipaddress.ip_address(p[2]), ipaddress.ip_address(p[3])
+                nws = list(ipaddress.summarize_address_range(a, b))
+            except ValueError:
+                continue
+            for u in p[4].split():
+                refs.setdefault(u, []).extend(nws)
+            n += 1
+        stats['arin-rdap'] = n
+    except Exception as e:
+        stats['arin-rdap'] = f'error: {e}'
+    print('arin', stats['arin-rdap'], 'urls', len(refs), flush=True)
 
     for u in DIRECT:
         refs.setdefault(u, []).extend([ipaddress.ip_network('0.0.0.0/0'), ipaddress.ip_network('::/0')])

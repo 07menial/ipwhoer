@@ -1,0 +1,31 @@
+name: arin-geofeed-discovery
+on:
+  schedule:
+    - cron: '41 3 * * 0'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+      - name: restore progress
+        run: |
+          mkdir -p arin-data
+          git fetch --depth=1 origin arin && git --work-tree=arin-data checkout origin/arin -- . || true
+          git reset -q
+      - name: query ARIN RDAP (time-boxed, resumes next run)
+        env: { BUDGET: '18000', THREADS: '8' }
+        run: python3 discover-arin.py arin-data/arin.tsv arin-data/arin.tsv
+      - name: publish orphan arin branch
+        if: always()
+        run: |
+          cd arin-data
+          [ -f arin.tsv ] || exit 0
+          printf '# ARIN 区 geofeed 发现进度\n由 discover-arin.py 逐块查询 rdap.arin.net 生成，build-geofeed.py 读取。只保留最新一份。\n' > README.md
+          git init -q -b arin
+          git -c user.name=ipx-bot -c user.email=actions@users.noreply.github.com add -A
+          git -c user.name=ipx-bot -c user.email=actions@users.noreply.github.com commit -qm "arin $(date -u +%FT%TZ)"
+          git push -fq "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" arin
