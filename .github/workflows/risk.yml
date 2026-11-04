@@ -19,6 +19,9 @@ jobs:
           git reset -q
       - name: build
         run: python3 build-risk.py risk-data
+      - name: build datacenter ranges (ipx 机房段库)
+        continue-on-error: true
+        run: python3 build-dc.py risk-data
       - name: publish orphan data branch
         run: |
           cd risk-data
@@ -28,6 +31,7 @@ jobs:
           - `sources.csv`：区间、命中来源、首次出现日期（人可读）
           - `risk.bin`：每条 16 字节小端 start,end,mask,first（ipx.al 线上查询用）
           - `risk.json`：来源列表、条数、构建时间
+          - `dc.bin` / `dc.json` / `dc.csv`：ipx 机房段库（IPv4），云厂商官方段 + RIPE RIS 路由 + 人工机房 ASN + PeeringDB Content，说明见 build-dc.py
           来源与许可见 https://ipx.al/risk 。纠错请提 issue。
           MD
           git init -q -b data

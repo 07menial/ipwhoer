@@ -7,3 +7,6 @@
 - `data` 分支：`sources.csv`（人可读）、`risk.bin`（线上查询用）、`risk.json`（来源与条数）
 
 命中只代表这个 IP 近期出现在名单里，不等于当前使用者有问题。误报请提 issue，附上 IP 和依据。
+
+## ipx 机房段库（build-dc.py）
+每 6 小时随风险库一起重建，只发布结论区间（`dc.csv` 人可读）。来源：AWS / Google Cloud / Oracle / Cloudflare 官方段，DigitalOcean / Linode / Vultr geofeed，RIPE RIS riswhois 路由表，`hosting-asns.txt`（人工整理），PeeringDB 主类型为 Content 的网络（排除 `not-hosting.txt`）。误判请提 issue，或直接 PR 修改这两个名单。
