@@ -108,3 +108,199 @@
 44973  # Rechenzentrum Hassfurt
 38856  # Walks Cloud
 203993  # GNA-DC1
+# 以下来自 brianhama/bad-asn-list（MIT）：名称含主机/机房关键词、PeeringDB 非家宽/企业/教育类型、RIS ≥10 peers 仍在宣告；2026-11-05 按名称人工剔除非机房项（EchoStar、Host Hotels、Itron 等）
+1442  # Surehosting Internet Solutions, Inc.
+7349  # Windstream Hosted Solutions, Llc
+8972  # Plusserver-As, De
+9166  # Hostit Nv
+9823  # Education Web Hosting
+9925  # Powerbase Datacenter Services (Hk) Ltd.
+10207  # Interhost Pacific Pty Ltd T/A Intervolve.
+11230  # Managed Hosting Services, Llc
+12586  # Ghostnet Gmbh
+13209  # Atom Hosting Srl
+13647  # Tranquil Hosting, Inc.
+13909  # Techie Hosting, Inc.
+14160  # Premium Hosting, Inc.
+14244  # Nsi Hosting
+14384  # Host Designs, Llc
+14415  # Host Collective, Inc.
+14567  # Springs Hosting
+14992  # Crystaltech Web Hosting Inc.
+15919  # Servicios De Hosting En Internet S.A.
+17881  # Inet Hosting Inc.
+18120  # Gemini Software Solutions (P) Ltd. Hosting Services, India
+19084  # Coloup - Coloup, Us
+19133  # Bird Hosting Inc.
+19437  # Ss-Ash - Secured Servers Llc, Us
+19624  # Serverroom - Data Room, Inc, Us
+19871  # Network-Solutions-Hosting - Network Solutions, Llc, Us
+20068  # Hawk Host Inc.
+20248  # Take 2 Hosting, Inc.
+20450  # Trojan Hosting, Llc.
+21217  # Safe Host Sa
+22903  # Edgewebhosting.Net
+23273  # Santa Barbara Web Hosting, Inc.
+23352  # Servercentral - Server Central Network, Us
+23535  # Hostrocket.Com, Inc.
+23881  # Udomain Web Hosting Company Ltd
+24558  # Internet Hosting Service Provider To The Aditya
+24611  # Datacenter Luxembourg S.A.
+24679  # Hostway Deutschland Gmbh
+24725  # Hostmaster Llc
+25048  # Dsnet Hosting Limited
+25532  # .Masterhost Autonomous System
+25642  # Spiderhost Inc
+26481  # Rebel Hosting
+26978  # Carpathia Hosting, Inc.
+27175  # Atnethost Llc
+27223  # Bare Metal Hosting
+27229  # Webhosting.Net, Inc.
+27357  # Rackspace Hosting
+27597  # Siteserver Hosting, Inc.
+29067  # Hostmaster Llc
+29119  # Servihosting Networks S.L.
+29713  # Reliable Hosting Services
+29748  # Carpathia Hosting, Inc.
+29869  # Hostrocket.Com, Inc.
+29883  # Internet Hosting Servers
+30152  # Beyond Hosting, Llc
+30475  # Wehostwebsites.Com
+31590  # Rackhosting.Com Aps
+31659  # Below Zero Hosting Ltd.
+31981  # Bluetower Hosting Llc
+32306  # Host Nit Inc
+32647  # Crucial Web Hosting, Ltd.
+33070  # Rackspace Hosting
+33322  # Network Data Center Host, Inc.
+34541  # Online Solutions Hosting Services
+35278  # Sprinthost.Ru Llc
+35467  # Datacenter Fryslan As
+35974  # Carpathia Hosting, Inc.
+36536  # Enterhost
+38001  # Newmedia Express Pte Ltd. Singapore Web Hosting Service Prov
+38894  # Managenet Pty Ltd Hosting Services
+39458  # Real Hosts Limited
+39756  # Hostway Romania Srl
+40281  # Qwk.Net Hosting, L.L.C.
+40374  # High Density Hosting, Inc.
+40438  # Canhost Inc.
+40539  # Hosting Consulting, Inc
+40715  # Datacenter.Bz, Llc
+40728  # Gearhost, Inc.
+40819  # Vps Datacenter, Llc
+41062  # Prostohosting Ltd
+41079  # Superhost.Pl Sp. Z O.O.
+41369  # Datacenter Finland Oy
+41427  # Datacenter D.O.O.
+41562  # Host4All Sarl
+42331  # Pe Freehost
+42399  # Hosting Center Llc
+42442  # Adacor Hosting Gmbh
+42612  # Asn De Dinahosting Sl
+42622  # Teknik I Media Datacenter Stockholm Ab
+42695  # City Network Hosting Ab
+42699  # As Managedhosting.De Gmbh
+43472  # Hostingmax Ltd
+44066  # De-Firstcolo Www.First-Colo.Net, De
+45201  # Bluecentral Pty Ltd Hosting Solutions.
+45481  # Digital Sense Data Centre Hosting Brisbane
+45577  # Interhost Pacific Pty Ltd T/A Intervolve.
+45887  # Gplhost Llc
+46433  # Eboundhost.Com
+46562  # Total-Server-Solutions - Total Server Solutions L.L.C., Us
+47143  # Todayhost Limited
+47161  # Kosmohost It Technologies Ltd
+47205  # Uab Hostex
+47549  # Hosting Systems Ltd
+47577  # Righthosting Ltd
+47625  # Paul David Hughes Trading As Hosting Systems
+48031  # Pe Ivanov Vitaliy Sergeevich - Xserver.Ua
+48093  # Webland Hosting Ab
+48812  # Datacenter Noord Bv
+48896  # Dhosting.Pl Sp. Z O.O.
+49313  # Seva-Host Ltd
+49485  # High Availability Hosting Limited
+49815  # Host2 Ltd
+49834  # Best Hosting Company Ltd
+49949  # 24 Solutions Hosting Services Ab
+50465  # Iqhost Ltd
+50608  # Ventelo Hosting As
+50872  # Localhost D.O.O.
+51050  # H4Hosting B.V.
+52236  # G2Khosting S.A.
+52270  # X-Host Srl
+52335  # Colombia Hosting
+52347  # Hostclick, De Duca Graciela Mirta
+52925  # Ascenty Datacenters Locacao E Servicos Ltda
+53332  # C2Hosting, Llc
+53342  # All Nine Hosting, Inc.
+53850  # Gorillaservers - Gorillaservers, Inc., Us
+53914  # Genesis Hosting Solutions, Llc
+54203  # Reliablehosting.Com
+54334  # Roya Hosting Llc
+54555  # Host Duplex, Llc
+55229  # White Sands Hosting
+55799  # Hostemo Technology Sdn Bhd
+57682  # Tov Host Vds
+57773  # Hostingbit Srl
+58922  # Microchannel Hosting Pty Ltd
+59135  # Pt Dapur Hosting
+59554  # Datacenter Groningen B.V.
+59615  # Cloud Hosting Llc
+59632  # Sc Pidgin Host Srl
+59816  # Safe Hosts Internet Llp
+60117  # Host Sailor Ltd.
+60476  # Mrg Hosting B.V.
+60558  # Securedservers-, Eu
+60800  # Netwise Hosting Ltd.
+61102  # Interhost Communication Solutions Ltd.
+61280  # By Hosting B.V.
+61412  # Bunkerinfra Datacenters Bv
+62071  # Datahost Srl
+62605  # Brain Host, Llc
+62756  # Hostrocket.Com, Inc.
+63213  # Astute Hosting Inc.
+132070  # Interhost Pacific Pty Ltd T/A Intervolve.
+132225  # Hosted Continuity Pty Ltd
+132509  # Digiweb Advanced Hosting Limited
+132717  # Nxtgen Datacenter &Amp; Cloud Technologies Pvt. Ltd.
+132869  # Dedicated-Hosting Solutions
+133120  # Hosted Network Pty. Ltd.
+133143  # Medihost Solutions Pty Ltd
+133393  # Naki Host Limited
+135822  # Ovi Hosting Pvt Ltd
+196645  # Hostpro Ltd.
+196745  # Datacenta Hosting Ltd
+196827  # Credocom Hosting Aps
+197372  # Nma Hosting Solutions Bv
+197395  # Ark B Hosting Bv
+197648  # Mega Host Limited
+197914  # Stockho Hosting Sarl
+198153  # As Seidor Datacenter Santander
+198171  # Hosting90 Systems S.R.O.
+198347  # Game-Hosting Gh Ab
+198432  # Ipcore Datacenters S.L
+198968  # Cyberneticos Hosting Sl
+199847  # Sorta-Hosting-Smllc
+199883  # Arubacloudltd-Asn, Gb
+199990  # Localhost As
+199997  # Ippon Hosting Sarl
+200000  # Hosting Ukraine Ltd
+200147  # Hosting Techniques Limited
+200532  # Llp Kompaniya Hoster.Kz
+200904  # Foxcloud Llp
+201200  # Superhosting.Bg Ltd.
+201449  # Digital Absolut Business - Servidor, Virtualizacao, Cluster,
+201597  # Ne-It Hosting B.V.
+201634  # Ingram Micro Hosting B.V.
+201709  # Hands Hanse Datacenter Services Gmbh
+201862  # Vmhosts Ltd
+262603  # Internet E Web Hosting Serv De Informatica Ltda
+262978  # Centro De Tecnologia Armazem Datacenter Ltda.
+262990  # Center Hosting Tecnologia Eireli
+263237  # Host E.I.R.L.
+393326  # Hosting4Biz
+394256  # Cloudsingularity - Tech Futures Interactive Inc., Ca
+395111  # Kvcnet-2009 - Kvchosting.Com Llc, Us
+398779  # Acehost
