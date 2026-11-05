@@ -27,6 +27,7 @@ SOURCES = [
     (7, 'feodo', 'abuse.ch Feodo 僵尸网络 C2', '僵尸网络', 'https://feodotracker.abuse.ch/', 'https://feodotracker.abuse.ch/downloads/ipblocklist.txt', 'lines'),
     (8, 'etcompromised', 'Emerging Threats 已失陷主机', '失陷主机', 'https://rules.emergingthreats.net/', 'https://rules.emergingthreats.net/blockrules/compromised-ips.txt', 'lines'),
     (10, 'spamhausasndrop', 'Spamhaus ASN-DROP', '恶意 ASN', 'https://www.spamhaus.org/blocklists/do-not-route-or-peer/', 'https://www.spamhaus.org/drop/asndrop.json', 'asndrop'),
+    (11, 'spamhausdrop6', 'Spamhaus DROPv6', '劫持/恶意网段', 'https://www.spamhaus.org/blocklists/do-not-route-or-peer/', 'https://www.spamhaus.org/drop/drop_v6.json', 'drop'),
     (9, 'sfs', 'StopForumSpam（30 天）', '垃圾注册', 'https://www.stopforumspam.com/', 'https://www.stopforumspam.com/downloads/listed_ip_30.zip', 'sfszip'),
 ]
 
@@ -37,8 +38,23 @@ def get(url):
         return r.read()
 
 
+CUR6 = []  # 当前来源解析出的 IPv6 区间（高 64 位），由 rng 顺手收集
+
+
+def rng6(tok):
+    try:
+        n = ipaddress.ip_network(tok, strict=False)
+        if n.version != 6 or not n.is_global: return
+        if n.prefixlen > 64: n = n.supernet(new_prefix=64)
+        CUR6.append((int(n.network_address) >> 64, int(n.broadcast_address) >> 64))
+    except ValueError:
+        pass
+
+
 def rng(tok):
     tok = tok.strip()
+    if ':' in tok:
+        rng6(tok); return None
     try:
         if '/' in tok:
             n = ipaddress.ip_network(tok, strict=False)
@@ -91,6 +107,28 @@ def parse(kind, raw):
     return out
 
 
+def sweep(events):
+    events.sort()
+    cnt = [0] * 32
+    rows = []
+    prev, i = None, 0
+    while i < len(events):
+        pos = events[i][0]
+        if prev is not None and pos > prev:
+            mask = sum(1 << b for b in range(32) if cnt[b] > 0)
+            if mask:
+                if rows and rows[-1][1] == prev - 1 and rows[-1][2] == mask:
+                    rows[-1][1] = pos - 1
+                else:
+                    rows.append([prev, pos - 1, mask])
+        while i < len(events) and events[i][0] == pos:
+            _, typ, b = events[i]
+            cnt[b] += 1 if typ == 0 else -1
+            i += 1
+        prev = pos
+    return rows
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     state = {}
@@ -99,21 +137,29 @@ def main():
         state = json.loads(gzip.decompress(open(sp, 'rb').read()))
     events = []  # (pos, +bit / -bit)
     meta = []
+    events6 = []
     for bit, sid, name, cat, link, url, kind in SOURCES:
+        CUR6.clear()
         try:
             rs = parse(kind, get(url))
             err = None
         except Exception as e:
             rs, err = [], str(e)[:120]
         # 来源失败时沿用上次条目（state 里保存的区间），避免数据突然消失
-        if not rs and sid in state.get('_last', {}):
+        if not rs and not CUR6 and sid in state.get('_last', {}):
             rs = [tuple(x) for x in state['_last'][sid]]
             err = (err or 'empty') + '（沿用上次数据）'
+        r6 = list(CUR6)
+        if not r6 and err and sid in state.get('_last6', {}):
+            r6 = [tuple(x) for x in state['_last6'][sid]]
         for s, e in rs:
             events.append((s, 0, bit)); events.append((e + 1, 1, bit))
+        for s, e in r6:
+            events6.append((s, 0, bit)); events6.append((e + 1, 1, bit))
         state.setdefault('_last', {})[sid] = rs
-        meta.append({'bit': bit, 'id': sid, 'name': name, 'cat': cat, 'link': link, 'count': len(rs), 'error': err})
-        print(f'{sid:14} {len(rs):7}', err or '', file=sys.stderr)
+        state.setdefault('_last6', {})[sid] = r6
+        meta.append({'bit': bit, 'id': sid, 'name': name, 'cat': cat, 'link': link, 'count': len(rs), 'count6': len(r6), 'error': err})
+        print(f'{sid:14} {len(rs):7} v6 {len(r6):6}', err or '', file=sys.stderr)
     events.sort()
     cnt = [0] * 32
     rows = []
@@ -142,10 +188,18 @@ def main():
         newfs[k] = f
         buf += struct.pack('<IIII', s, e, m, f)
     state['first'] = newfs
+    # IPv6：按 /64 粒度（高 64 位）同样扫一遍，risk6.bin 每条 24 字节 start_hi,start_lo,end_hi,end_lo,mask,first
+    rows6 = sweep(events6)
+    fs6, newfs6, buf6, M = state.get('first6', {}), {}, bytearray(), 0xffffffff
+    for s6, e6, m in rows6:
+        k = f'{s6}-{e6}'; f = fs6.get(k, today); newfs6[k] = f
+        buf6 += struct.pack('<IIIIII', s6 >> 32, s6 & M, e6 >> 32, e6 & M, m, f)
+    state['first6'] = newfs6
+    open(os.path.join(OUT, 'risk6.bin'), 'wb').write(buf6)
     open(os.path.join(OUT, 'risk.bin'), 'wb').write(buf)
     open(sp, 'wb').write(gzip.compress(json.dumps(state, separators=(',', ':')).encode()))
     json.dump({'built': dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'), 'epoch': EPOCH.isoformat(),
-               'ranges': len(rows), 'ips': sum(e - s + 1 for s, e, _ in rows), 'sources': meta},
+               'ranges': len(rows), 'ranges6': len(rows6), 'ips': sum(e - s + 1 for s, e, _ in rows), 'sources': meta},
               open(os.path.join(OUT, 'risk.json'), 'w'), ensure_ascii=False, indent=1)
     with open(os.path.join(OUT, 'sources.csv'), 'w', newline='') as f:
         w = csv.writer(f); w.writerow(['start', 'end', 'sources', 'first_seen'])

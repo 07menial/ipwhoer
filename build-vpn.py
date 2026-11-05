@@ -121,6 +121,29 @@ def zscaler():
     return re.findall(r'"range"\s*:\s*"([0-9a-fA-F:./]+)"', t)
 
 
+SCAN_NAMES = {'binaryedge.ninja': 'BinaryEdge', 'stretchoid.com': 'Stretchoid', 'censys.io': 'Censys', 'onyphe.net': 'Onyphe',
+              'rapid7.com': 'Rapid7', 'shodan.io': 'Shodan', 'kudelskisecurity.com': 'Kudelski Security', 'riskiq.com': 'RiskIQ',
+              'criminalip.com': 'Criminal IP', 'driftnet.io': 'Driftnet', 'shadowserver.org': 'Shadowserver', 'colostate.edu': 'CSU 网络测量'}
+
+
+def scanners():
+    # stamparm/maltrail（MIT）整理的已知互联网扫描器 IP / 段，按注释里的域名归到扫描机构。只展示，不计分
+    import re
+    by = {}
+    for f in ('mass_scanner.txt', 'mass_scanner_cidr.txt'):
+        for l in get(GH + 'stamparm/maltrail/master/data/' + f).decode('utf-8', 'replace').splitlines():
+            if not l.strip() or l.startswith('#'): continue
+            ip, _, c = l.partition('#')
+            m = re.search(r'([a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,})\b', c.strip().lower())
+            d = '.'.join(m.group(1).split('.')[-2:]) if m else ''
+            by.setdefault(SCAN_NAMES.get(d, d), []).append(ip.strip())
+    out, other = {}, []
+    for k, v in by.items():
+        (out.__setitem__(k, v) if k and len(v) >= 20 else other.extend(v))
+    out['其他扫描器'] = other
+    return out
+
+
 GH = 'https://raw.githubusercontent.com/'
 
 
@@ -163,14 +186,22 @@ SOURCES = [('Mullvad', 1, mullvad), ('NordVPN', 1, nord), ('Private Internet Acc
            ('IVPN', 1, ivpn), ('Surfshark', 1, surfshark), ('AirVPN', 1, airvpn), ('Windscribe', 1, windscribe),
            ('OVPN', 1, ovpn), ('PrivadoVPN', 1, privado), ('VyprVPN', 1, vypr),  # IPVanish 配置包对 CI 的 UA 返回错误，不绕过
            ('ProtonVPN', 1, proton), ('Windscribe', 1, windscribe_exit), ('TunnelBear', 1, tunnelbear),
-           ('iCloud Private Relay', 2, icloud)] + [(name, 3, bot(k)) for k, name in BOTS] + [('Tor 中继', 4, tor_relays), ('Zscaler', 5, zscaler)]
+           ('iCloud Private Relay', 2, icloud)] + [(name, 3, bot(k)) for k, name in BOTS] + [('Tor 中继', 4, tor_relays), ('Zscaler', 5, zscaler), ('__scanners__', 6, scanners)]
 
 
 def main():
     os.makedirs(OUT, exist_ok=True)
     provs, counts, items = [], {}, {4: [], 6: []}
     prev = os.path.join(OUT, 'vpn.json')
+    srcs = []
     for name, cat, fn in SOURCES:
+        if not name.startswith('__'):
+            srcs.append((name, cat, fn)); continue
+        try:
+            srcs += [(k, cat, (lambda v=v: v)) for k, v in fn().items()]
+        except Exception as e:
+            print(name, 'failed:', e); counts[name.strip('_')] = f'error: {type(e).__name__}'
+    for name, cat, fn in srcs:
         try:
             lst = fn()
         except Exception as e:
@@ -196,7 +227,7 @@ def main():
     if not any(isinstance(v, int) and v for v in counts.values()):
         sys.exit('all sources failed')
     meta = {'built': dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'), 'version': 1,
-            'providers': provs, 'categories': {1: 'VPN', 2: '隐私中继', 3: '爬虫', 4: 'Tor 中继', 5: '企业代理'}, 'counts': counts}
+            'providers': provs, 'categories': {1: 'VPN', 2: '隐私中继', 3: '爬虫', 4: 'Tor 中继', 5: '企业代理', 6: '扫描器'}, 'counts': counts}
     for ver, name in ((4, 'vpn.bin'), (6, 'vpn6.bin')):
         it = sorted(items[ver], key=lambda x: (x[2], 0 if x[3] >> 16 >= 3 else 1))  # 同长度时只展示类（爬虫/Tor 中继/企业代理）优先级最低
         bounds = sorted({x[0] for x in it} | {x[1] + 1 for x in it})
