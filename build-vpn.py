@@ -72,6 +72,39 @@ def windscribe():
     return [n[k] for loc in d for n in loc.get('nodes') or [] for k in ('ip', 'ip2', 'ip3') if n.get(k)]
 
 
+GH = 'https://raw.githubusercontent.com/'
+
+
+def lines(url):
+    return [l.split(',')[0].strip() for l in get(url, 180).decode('utf-8', 'replace').splitlines() if l.strip() and not l.startswith('#')]
+
+
+def proton():
+    # tn3w/ProtonVPN-IPs（Apache-2.0）：Proton 官方 API 公布的出口 + 入口 IP，每日更新
+    b = GH + 'tn3w/ProtonVPN-IPs/master/'
+    return lines(b + 'protonvpn_ips.txt') + lines(b + 'protonvpn_entry_ips.txt')
+
+
+def windscribe_exit():
+    # tn3w/Windscribe-IPs（Apache-2.0）：Windscribe 出口 IP（官方列表只有入口）
+    return lines(GH + 'tn3w/Windscribe-IPs/master/windscribe_ips.txt')
+
+
+def tunnelbear():
+    # tn3w/TunnelBear-IPs（Apache-2.0）
+    return lines(GH + 'tn3w/TunnelBear-IPs/master/tunnelbear_ips.txt')
+
+
+# 爬虫：各家官方公布的抓取段，经 rezmoss/cloud-provider-ip-addresses（CC0）汇总。只展示，不计分
+BOTS = [('googlebot', 'Googlebot'), ('bingbot', 'Bingbot'), ('gptbot', 'OpenAI 爬虫'), ('claudebot', 'Anthropic 爬虫'),
+        ('applebot', 'Applebot'), ('perplexitybot', 'Perplexity 爬虫'), ('duckduckbot', 'DuckDuckBot'),
+        ('amazonbot', 'Amazonbot'), ('commoncrawl', 'Common Crawl')]
+
+
+def bot(key):
+    return lambda: lines(GH + f'rezmoss/cloud-provider-ip-addresses/main/{key}/{key}_ips.txt')
+
+
 def icloud():
     raw = get('https://mask-api.icloud.com/egress-ip-ranges.csv', 300).decode('utf-8', 'replace')
     return [line.split(',', 1)[0] for line in raw.splitlines() if line and not line.startswith('#')]
@@ -79,7 +112,8 @@ def icloud():
 
 SOURCES = [('Mullvad', 1, mullvad), ('NordVPN', 1, nord), ('Private Internet Access', 1, pia),
            ('IVPN', 1, ivpn), ('Surfshark', 1, surfshark), ('AirVPN', 1, airvpn), ('Windscribe', 1, windscribe),
-           ('iCloud Private Relay', 2, icloud)]
+           ('ProtonVPN', 1, proton), ('Windscribe', 1, windscribe_exit), ('TunnelBear', 1, tunnelbear),
+           ('iCloud Private Relay', 2, icloud)] + [(name, 3, bot(k)) for k, name in BOTS]
 
 
 def main():
@@ -91,7 +125,10 @@ def main():
             lst = fn()
         except Exception as e:
             print(name, 'failed:', e); counts[name] = f'error: {type(e).__name__}'; continue
-        pi = len(provs); provs.append(name); n = 0
+        if name in provs:
+            pi = provs.index(name); n = counts[name] if isinstance(counts.get(name), int) else 0
+        else:
+            pi = len(provs); provs.append(name); n = 0
         for x in lst:
             try:
                 nw = ipaddress.ip_network(x.strip(), strict=False)
@@ -109,9 +146,9 @@ def main():
     if not any(isinstance(v, int) and v for v in counts.values()):
         sys.exit('all sources failed')
     meta = {'built': dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'), 'version': 1,
-            'providers': provs, 'categories': {1: 'VPN', 2: '隐私中继'}, 'counts': counts}
+            'providers': provs, 'categories': {1: 'VPN', 2: '隐私中继', 3: '爬虫'}, 'counts': counts}
     for ver, name in ((4, 'vpn.bin'), (6, 'vpn6.bin')):
-        it = sorted(items[ver], key=lambda x: x[2])
+        it = sorted(items[ver], key=lambda x: (x[2], 0 if x[3] >> 16 == 3 else 1))  # 同长度时爬虫优先级最低
         bounds = sorted({x[0] for x in it} | {x[1] + 1 for x in it})
         owner = [None] * len(bounds)
         for x in it:

@@ -34,6 +34,7 @@ DIRECT = [
     'https://geofeed.constant.com/',  # ?text 只给前缀不带位置（2026-11-05 发现），用 CSV 版
     'https://www.gstatic.com/ipranges/cloud_geofeed',
     'https://geoip.starlinkisp.net/feed.csv',
+    'https://raw.githubusercontent.com/tmobile/tmus-geofeed/main/tmus-geo-ip.txt',  # T-Mobile US 官方仓库（Apache-2.0）
 ]
 ARIN_TSV = 'https://raw.githubusercontent.com/yehyakin/ipx-al-data/arin/arin.tsv'
 URL_RE = re.compile(r'https://\S+', re.I)

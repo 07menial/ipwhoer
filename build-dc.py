@@ -61,6 +61,24 @@ def azure():
     raise RuntimeError('Azure ServiceTags not found')
 
 
+# 各家官方公布的段（CDN、托管、CI、监控探针），经 rezmoss/cloud-provider-ip-addresses（CC0）汇总；只取官方来源的，BGP 推算的不取
+REZ = [('github', 'GitHub'), ('imperva', 'Imperva'), ('gcore', 'G-Core Labs'), ('cachefly', 'CacheFly'),
+       ('gocache', 'GoCache'), ('quiccloud', 'QUIC.cloud'), ('play2go', 'Play2Go'), ('circleci', 'CircleCI'),
+       ('teamcity', 'TeamCity Cloud'), ('datadog', 'Datadog'), ('uptimerobot', 'UptimeRobot'),
+       ('statuscake', 'StatusCake'), ('pingdom', 'Pingdom')]
+
+
+def rez():
+    out = []
+    for k, name in REZ:
+        try:
+            raw = get(f'https://raw.githubusercontent.com/rezmoss/cloud-provider-ip-addresses/main/{k}/{k}_ips.txt', 120)
+        except Exception as e:
+            print(name, 'failed:', e); continue
+        out += [(l.strip(), name) for l in raw.decode('utf-8', 'replace').splitlines() if l.strip() and not l.startswith('#')]
+    return out
+
+
 def cloud():
     out = []  # (cidr, provider)
     j = json.loads(get('https://ip-ranges.amazonaws.com/ip-ranges.json'))
@@ -75,6 +93,7 @@ def cloud():
         out += [(c, 'Azure') for c in azure()]
     except Exception as e:
         print('Azure failed:', e)
+    out += rez()
     out += [(l, 'Cloudflare') for v in ('v4', 'v6') for l in get(f'https://www.cloudflare.com/ips-{v}').decode().split()]
     for url, name in [('https://digitalocean.com/geo/google.csv', 'DigitalOcean'),
                       ('https://geoip.linode.com/', 'Linode'),
