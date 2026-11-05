@@ -16,7 +16,7 @@
   dc.json  厂商名、来源说明、条数、构建时间
   dc.csv   人可读：start,end,asn,source,provider
 """
-import csv, gzip, io, ipaddress, json, os, struct, sys, urllib.request, datetime as dt
+import csv, gzip, io, ipaddress, json, os, re, struct, sys, urllib.request, datetime as dt
 
 OUT = sys.argv[1] if len(sys.argv) > 1 else 'out'
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -41,6 +41,26 @@ def net(cidr, ver):
     return int(n.network_address) >> 64, int(n.broadcast_address) >> 64, min(n.prefixlen, 64)
 
 
+def azure():
+    # 微软每周发布 ServiceTags_Public_YYYYMMDD.json（下载路径固定，文件名带日期）；先读下载页，失败再按日期往回试 21 天
+    base = 'https://download.microsoft.com/download/7/1/d/71d86715-5596-4529-9b13-da13a5de5b63/'
+    urls = []
+    try:
+        urls += re.findall(r'https://download\.microsoft\.com/[^"\']*ServiceTags_Public_\d{8}\.json',
+                           get('https://www.microsoft.com/en-us/download/details.aspx?id=56519', 60).decode('utf-8', 'replace'))
+    except Exception:
+        pass
+    today = dt.date.today()
+    urls += [base + f'ServiceTags_Public_{(today - dt.timedelta(days=i)):%Y%m%d}.json' for i in range(21)]
+    for u in urls:
+        try:
+            j = json.loads(get(u, 120))
+        except Exception:
+            continue
+        return [p for v in j['values'] if v['name'] == 'AzureCloud' for p in v['properties']['addressPrefixes']]
+    raise RuntimeError('Azure ServiceTags not found')
+
+
 def cloud():
     out = []  # (cidr, provider)
     j = json.loads(get('https://ip-ranges.amazonaws.com/ip-ranges.json'))
@@ -51,6 +71,10 @@ def cloud():
     j = json.loads(get('https://docs.oracle.com/en-us/iaas/tools/public_ip_ranges.json'))
     out += [(c['cidr'], 'Oracle Cloud') for r in j['regions'] for c in r['cidrs']]
     out += [(c, 'Fastly') for k in ('addresses', 'ipv6_addresses') for c in json.loads(get('https://api.fastly.com/public-ip-list')).get(k, [])]
+    try:
+        out += [(c, 'Azure') for c in azure()]
+    except Exception as e:
+        print('Azure failed:', e)
     out += [(l, 'Cloudflare') for v in ('v4', 'v6') for l in get(f'https://www.cloudflare.com/ips-{v}').decode().split()]
     for url, name in [('https://digitalocean.com/geo/google.csv', 'DigitalOcean'),
                       ('https://geoip.linode.com/', 'Linode'),

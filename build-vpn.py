@@ -60,13 +60,26 @@ def surfshark():
         return [ip for _, ips in ex.map(resolve, hosts) for ip in ips]
 
 
+def airvpn():
+    # AirVPN 公开状态接口：每台服务器的入口 IP（v4/v6 各 4 个）
+    s = json.loads(get('https://airvpn.org/api/status/'))['servers']
+    return [v for x in s for k, v in x.items() if k.startswith(('ip_v4_in', 'ip_v6_in')) and v]
+
+
+def windscribe():
+    # Windscribe 客户端用的公开服务器列表：每个节点 ip / ip2 / ip3
+    d = json.loads(get('https://assets.windscribe.com/serverlist/openvpn/1/1'))['data']
+    return [n[k] for loc in d for n in loc.get('nodes') or [] for k in ('ip', 'ip2', 'ip3') if n.get(k)]
+
+
 def icloud():
     raw = get('https://mask-api.icloud.com/egress-ip-ranges.csv', 300).decode('utf-8', 'replace')
     return [line.split(',', 1)[0] for line in raw.splitlines() if line and not line.startswith('#')]
 
 
 SOURCES = [('Mullvad', 1, mullvad), ('NordVPN', 1, nord), ('Private Internet Access', 1, pia),
-           ('IVPN', 1, ivpn), ('Surfshark', 1, surfshark), ('iCloud Private Relay', 2, icloud)]
+           ('IVPN', 1, ivpn), ('Surfshark', 1, surfshark), ('AirVPN', 1, airvpn), ('Windscribe', 1, windscribe),
+           ('iCloud Private Relay', 2, icloud)]
 
 
 def main():
