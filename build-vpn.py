@@ -72,6 +72,55 @@ def windscribe():
     return [n[k] for loc in d for n in loc.get('nodes') or [] for k in ('ip', 'ip2', 'ip3') if n.get(k)]
 
 
+def ovpn():
+    j = json.loads(get('https://www.ovpn.com/v2/api/client/entry'))
+    return [x['ip'] for d in j['datacenters'] for x in d.get('servers', []) if x.get('ip')]
+
+
+def privado():
+    return [x['ip'] for x in json.loads(get('https://privadovpn.com/apps/servers_export.json'))['servers'] if x.get('ip')]
+
+
+def resolve_all(hosts):
+    with cf.ThreadPoolExecutor(32) as ex:
+        return [ip for _, ips in ex.map(resolve, hosts) for ip in ips]
+
+
+def ipvanish():
+    # 官方 OpenVPN 配置包里的 remote 主机名
+    import re, zipfile
+    z = zipfile.ZipFile(io.BytesIO(get('https://configs.ipvanish.com/configs/configs.zip', 180)))
+    hosts = set()
+    for n in z.namelist():
+        m = re.search(rb'^remote\s+(\S+)', z.read(n), re.M) if n.endswith('.ovpn') else None
+        if m: hosts.add(m.group(1).decode())
+    return resolve_all(hosts)
+
+
+def vypr():
+    import re
+    t = get('https://support.vyprvpn.com/hc/en-us/articles/360037728912-What-are-the-VyprVPN-server-addresses-').decode('utf-8', 'replace')
+    return resolve_all(set(re.findall(r'[a-z0-9-]+\.vyprvpn\.com', t)) - {'www.vyprvpn.com', 'support.vyprvpn.com'})
+
+
+def tor_relays():
+    # Tor 官方 Onionoo：所有在线中继的 OR 地址（含非出口）。只展示，不计分
+    j = json.loads(get('https://onionoo.torproject.org/details?type=relay&running=true&fields=or_addresses', 180))
+    out = []
+    for r in j['relays']:
+        for a in r.get('or_addresses', []):
+            h = a.rsplit(':', 1)[0].strip('[]')
+            out.append(h)
+    return out
+
+
+def zscaler():
+    # Zscaler 官方公布的云节点出口段（企业安全代理）。只展示，不计分
+    import re
+    t = get('https://config.zscaler.com/api/zscaler.net/cenr/json').decode()
+    return re.findall(r'"range"\s*:\s*"([0-9a-fA-F:./]+)"', t)
+
+
 GH = 'https://raw.githubusercontent.com/'
 
 
@@ -112,8 +161,9 @@ def icloud():
 
 SOURCES = [('Mullvad', 1, mullvad), ('NordVPN', 1, nord), ('Private Internet Access', 1, pia),
            ('IVPN', 1, ivpn), ('Surfshark', 1, surfshark), ('AirVPN', 1, airvpn), ('Windscribe', 1, windscribe),
+           ('OVPN', 1, ovpn), ('PrivadoVPN', 1, privado), ('IPVanish', 1, ipvanish), ('VyprVPN', 1, vypr),
            ('ProtonVPN', 1, proton), ('Windscribe', 1, windscribe_exit), ('TunnelBear', 1, tunnelbear),
-           ('iCloud Private Relay', 2, icloud)] + [(name, 3, bot(k)) for k, name in BOTS]
+           ('iCloud Private Relay', 2, icloud)] + [(name, 3, bot(k)) for k, name in BOTS] + [('Tor 中继', 4, tor_relays), ('Zscaler', 5, zscaler)]
 
 
 def main():
@@ -146,9 +196,9 @@ def main():
     if not any(isinstance(v, int) and v for v in counts.values()):
         sys.exit('all sources failed')
     meta = {'built': dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'), 'version': 1,
-            'providers': provs, 'categories': {1: 'VPN', 2: '隐私中继', 3: '爬虫'}, 'counts': counts}
+            'providers': provs, 'categories': {1: 'VPN', 2: '隐私中继', 3: '爬虫', 4: 'Tor 中继', 5: '企业代理'}, 'counts': counts}
     for ver, name in ((4, 'vpn.bin'), (6, 'vpn6.bin')):
-        it = sorted(items[ver], key=lambda x: (x[2], 0 if x[3] >> 16 == 3 else 1))  # 同长度时爬虫优先级最低
+        it = sorted(items[ver], key=lambda x: (x[2], 0 if x[3] >> 16 >= 3 else 1))  # 同长度时只展示类（爬虫/Tor 中继/企业代理）优先级最低
         bounds = sorted({x[0] for x in it} | {x[1] + 1 for x in it})
         owner = [None] * len(bounds)
         for x in it:

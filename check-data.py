@@ -70,7 +70,7 @@ def q_gf(T):
     return []
 
 def q_vpn(T):
-    f = finder(T); n = sum(1 for s in samples if f(s[0]))
+    f = finder(T); n = sum(1 for s in samples if (r := f(s[0])) and r[2] >> 16 <= 2)  # 只算 VPN/中继；爬虫、Tor 中继、企业代理只展示
     notes.append(f'vpn 在非 VPN 样本上命中 {n}')
     return [f'在 {n} 个非 VPN 样本上命中（> 3）'] if n > 3 else []
 

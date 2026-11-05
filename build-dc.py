@@ -94,6 +94,17 @@ def cloud():
     except Exception as e:
         print('Azure failed:', e)
     out += rez()
+    # Google 自有段（goog.json 含 Google 服务，不含 Google Fiber 家宽）；更具体的 Cloud 段会覆盖它
+    j = json.loads(get('https://www.gstatic.com/ipranges/goog.json'))
+    out += [(p.get('ipv4Prefix') or p.get('ipv6Prefix'), 'Google') for p in j['prefixes'] if p.get('ipv4Prefix') or p.get('ipv6Prefix')]
+    try:  # 微软公网 IP 清单（官方 CSV，含 Azure 以外的微软段；Azure 段更具体会覆盖）
+        out += [(l.split(',')[0].strip(), 'Microsoft') for l in get('https://download.microsoft.com/download/B/2/A/B2AB28E1-DAE1-44E8-A867-4987FE089EBE/msft-public-ips.csv').decode('utf-8', 'replace').splitlines()[1:] if l.strip()]
+    except Exception as e:
+        print('Microsoft failed:', e)
+    try:  # Zscaler 官方云节点出口段（企业安全代理）
+        out += [(c, 'Zscaler') for c in re.findall(r'"range"\s*:\s*"([0-9a-fA-F:./]+)"', get('https://config.zscaler.com/api/zscaler.net/cenr/json').decode())]
+    except Exception as e:
+        print('Zscaler failed:', e)
     out += [(l, 'Cloudflare') for v in ('v4', 'v6') for l in get(f'https://www.cloudflare.com/ips-{v}').decode().split()]
     for url, name in [('https://digitalocean.com/geo/google.csv', 'DigitalOcean'),
                       ('https://geoip.linode.com/', 'Linode'),

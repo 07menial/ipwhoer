@@ -26,13 +26,14 @@ SOURCES = [
     (6, 'tor', 'Tor 出口节点', '匿名网络', 'https://check.torproject.org/', 'https://check.torproject.org/torbulkexitlist', 'lines'),
     (7, 'feodo', 'abuse.ch Feodo 僵尸网络 C2', '僵尸网络', 'https://feodotracker.abuse.ch/', 'https://feodotracker.abuse.ch/downloads/ipblocklist.txt', 'lines'),
     (8, 'etcompromised', 'Emerging Threats 已失陷主机', '失陷主机', 'https://rules.emergingthreats.net/', 'https://rules.emergingthreats.net/blockrules/compromised-ips.txt', 'lines'),
+    (10, 'spamhausasndrop', 'Spamhaus ASN-DROP', '恶意 ASN', 'https://www.spamhaus.org/blocklists/do-not-route-or-peer/', 'https://www.spamhaus.org/drop/asndrop.json', 'asndrop'),
     (9, 'sfs', 'StopForumSpam（30 天）', '垃圾注册', 'https://www.stopforumspam.com/', 'https://www.stopforumspam.com/downloads/listed_ip_30.zip', 'sfszip'),
 ]
 
 
 def get(url):
     req = urllib.request.Request(url, headers={'User-Agent': UA})
-    with urllib.request.urlopen(req, timeout=60) as r:
+    with urllib.request.urlopen(req, timeout=180) as r:
         return r.read()
 
 
@@ -70,6 +71,17 @@ def parse(kind, raw):
             try: j = json.loads(l)
             except ValueError: continue
             if 'cidr' in j and (r := rng(j['cidr'])): out.append(r)
+    elif kind == 'asndrop':
+        # Spamhaus 列出的整个 ASN → 用 RIPE RIS 看到的该 ASN 宣告前缀（≥10 peers）展开
+        bad = set()
+        for l in raw.decode().splitlines():
+            try: j = json.loads(l)
+            except ValueError: continue
+            if isinstance(j.get('asn'), int): bad.add(j['asn'])
+        ris = gzip.decompress(get('https://www.ris.ripe.net/dumps/riswhoisdump.IPv4.gz')).decode('utf-8', 'replace')
+        for l in ris.splitlines():
+            p = l.split('\t')
+            if len(p) >= 3 and p[0].isdigit() and int(p[0]) in bad and p[2].isdigit() and int(p[2]) >= 10 and (r := rng(p[1])): out.append(r)
     elif kind == 'sfszip':
         z = zipfile.ZipFile(io.BytesIO(raw))
         for name in z.namelist():
