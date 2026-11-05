@@ -161,7 +161,7 @@ def icloud():
 
 SOURCES = [('Mullvad', 1, mullvad), ('NordVPN', 1, nord), ('Private Internet Access', 1, pia),
            ('IVPN', 1, ivpn), ('Surfshark', 1, surfshark), ('AirVPN', 1, airvpn), ('Windscribe', 1, windscribe),
-           ('OVPN', 1, ovpn), ('PrivadoVPN', 1, privado), ('IPVanish', 1, ipvanish), ('VyprVPN', 1, vypr),
+           ('OVPN', 1, ovpn), ('PrivadoVPN', 1, privado), ('VyprVPN', 1, vypr),  # IPVanish 配置包对 CI 的 UA 返回错误，不绕过
            ('ProtonVPN', 1, proton), ('Windscribe', 1, windscribe_exit), ('TunnelBear', 1, tunnelbear),
            ('iCloud Private Relay', 2, icloud)] + [(name, 3, bot(k)) for k, name in BOTS] + [('Tor 中继', 4, tor_relays), ('Zscaler', 5, zscaler)]
 
