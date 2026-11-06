@@ -9,14 +9,20 @@
   risk.json  元数据：来源列表（bit、名称、类别、链接、条数）、构建时间、区间数
   state.json.gz  首次出现时间状态（下次构建读取，保持 first 不变）
   sources.csv    可读版本（start,end,sources,first_seen）
+  hist/<a>.bin   已移出名单的区间（按第一段八位组分片，0–255），每条 20 字节小端：
+                 start u32, end u32, mask u32（当时命中的来源）, first u32, last u32（最后一次构建仍在名单的日子），
+                 日期都是距 2026-01-01 的天数，保留 HIST_DAYS 天；hist.json 记录开始记录的日期
+  hist.bin.gz    上面分片的合并版（下次构建读取）
+first/last 只是 ipx 自己每 6 小时构建时观测到的日期（自 ipx 开始收录起），不是名单方公布的首次上榜时间。
 只用公开、允许再分发的数据；不含任何站点访客查询记录。
 """
-import csv, datetime as dt, gzip, io, ipaddress, json, os, re, struct, sys, urllib.request, zipfile
+import bisect, csv, datetime as dt, gzip, io, ipaddress, json, os, re, struct, sys, urllib.request, zipfile
 
 OUT = sys.argv[1] if len(sys.argv) > 1 else 'risk-data'
 UA = 'ipx.al risk builder (+https://ipx.al/risk)'
 EPOCH = dt.date(2026, 1, 1)
 TODAY = dt.datetime.now(dt.timezone.utc).date()
+HIST_DAYS = 90
 
 # bit, id, 名称, 类别, 链接, 拉取地址, 解析器
 SOURCES = [
@@ -140,12 +146,51 @@ def sweep(events):
     return rows
 
 
+def subtract(segs, cover):
+    """segs: 按 start 排序、互不重叠的 [s, e, *payload]；cover: 按 start 排序、互不重叠的 (s, e)。返回 segs 里没被 cover 覆盖的部分。"""
+    out, j = [], 0
+    for seg in segs:
+        s, e, rest = seg[0], seg[1], seg[2:]
+        while j < len(cover) and cover[j][1] < s: j += 1
+        k, cur = j, s
+        while k < len(cover) and cover[k][0] <= e:
+            if cover[k][0] > cur: out.append([cur, cover[k][0] - 1, *rest])
+            cur = max(cur, cover[k][1] + 1)
+            if cur > e: break
+            k += 1
+        if cur <= e: out.append([cur, e, *rest])
+    return out
+
+
+def inherit_first(s, e, old, oi):
+    """新区间 [s,e] 的首次日期：完全落在一个旧区间里 → 沿用；完全由几个旧区间拼成 → 取其中最晚的（保守，不会早于真实首次）；否则 None。
+    old: 按 start 排序的 [s, e, first]；oi: old 的 start 列表。"""
+    i = max(0, bisect.bisect_right(oi, s) - 1)
+    cur, fmax = s, None
+    while i < len(old) and old[i][0] <= e:
+        os_, oe, of = old[i][0], old[i][1], old[i][2]
+        if oe >= cur:
+            if os_ > cur: return None
+            fmax = of if fmax is None else max(fmax, of)
+            cur = oe + 1
+            if cur > e: return fmax
+        i += 1
+    return None
+
+
+def load_hist(path):
+    if not os.path.exists(path): return []
+    b = gzip.decompress(open(path, 'rb').read())
+    return [list(struct.unpack_from('<IIIII', b, i)) for i in range(0, len(b) - len(b) % 20, 20)]
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     state = {}
     sp = os.path.join(OUT, 'state.json.gz')
     if os.path.exists(sp):
         state = json.loads(gzip.decompress(open(sp, 'rb').read()))
+    prev_last = {k: [tuple(x) for x in v] for k, v in state.get('_last', {}).items()}
     events = []  # (pos, +bit / -bit)
     meta = []
     events6 = []
@@ -191,14 +236,50 @@ def main():
         prev = pos
     fs = state.get('first', {})
     today = (TODAY - EPOCH).days
+    prev_day = state.get('day', today)  # 上一次构建的日子（每 6 小时一次，通常是今天或昨天）
+    # 上一版的区间（同一套 sweep 重放上次各来源的条目，key 与 state['first'] 一致）和首次日期
+    bit_of = {sid: b for b, sid, *_ in SOURCES}
+    pev = []
+    for sid, rs in prev_last.items():
+        if sid in bit_of:
+            for s, e in rs: pev.append((s, 0, bit_of[sid])); pev.append((e + 1, 1, bit_of[sid]))
+    prev_rows = [[s, e, m, fs.get(f'{s}-{e}', prev_day)] for s, e, m in sweep(pev)] if pev else []
+    hp = os.path.join(OUT, 'hist.bin.gz')
+    hist = load_hist(hp)  # [s, e, mask, first, last]，按 start 排序、互不重叠
+    old = sorted([[r[0], r[1], r[3]] for r in prev_rows] + [[h[0], h[1], h[3]] for h in hist])
+    oi = [x[0] for x in old]
     newfs = {}
     buf = bytearray()
     for s, e, m in rows:
         k = f'{s}-{e}'
-        f = fs.get(k, today)
+        f = fs.get(k)
+        if f is None: f = inherit_first(s, e, old, oi)  # 区间边界变了（相邻合并/拆分）或曾经移出又回来：沿用能确证的首次日期
+        if f is None: f = today
         newfs[k] = f
         buf += struct.pack('<IIII', s, e, m, f)
     state['first'] = newfs
+    # 移出名单的历史：上一版有、这一版没有的部分记下 [首次, 最后一次在名单]；重新上榜的部分从历史里去掉
+    cover = [(s, e) for s, e, _ in rows]
+    gone = subtract([r[:] for r in prev_rows], cover)
+    gone = [[s, e, m, f, prev_day] for s, e, m, f in gone]
+    keep = [h for h in subtract(hist, cover) if h[4] >= today - HIST_DAYS]
+    hist = sorted(h for h in keep + gone if h[4] >= today - HIST_DAYS)
+    hb = bytearray()
+    for h in hist: hb += struct.pack('<IIIII', *h)
+    open(hp, 'wb').write(gzip.compress(bytes(hb)))
+    hd = os.path.join(OUT, 'hist'); os.makedirs(hd, exist_ok=True)
+    shards = {}
+    for s, e, m, f, l in hist:  # 跨 /8 的区间拆到各自分片
+        a = s >> 24
+        while True:
+            top = min(e, (a << 24) | 0xFFFFFF)
+            shards.setdefault(a, bytearray()).extend(struct.pack('<IIIII', max(s, a << 24), top, m, f, l))
+            if top >= e: break
+            a += 1
+    for a in range(256): open(os.path.join(hd, f'{a}.bin'), 'wb').write(bytes(shards.get(a, b'')))
+    state['day'] = today
+    state.setdefault('hist_since', today)
+    first_since = min(list(newfs.values()) + [h[3] for h in hist] or [today])
     # IPv6：完整 128 位扫一遍，risk6.bin v2（见文件头说明）
     rows6 = sweep(events6)
     fs6, newfs6, M = state.get('first6', {}), {}, 0xffffffff
@@ -213,7 +294,9 @@ def main():
     open(os.path.join(OUT, 'risk.bin'), 'wb').write(buf)
     open(sp, 'wb').write(gzip.compress(json.dumps(state, separators=(',', ':')).encode()))
     json.dump({'built': dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'), 'epoch': EPOCH.isoformat(),
-               'ranges': len(rows), 'ranges6': len(rows6), 'ips': sum(e - s + 1 for s, e, _ in rows), 'sources': meta},
+               'ranges': len(rows), 'ranges6': len(rows6), 'ips': sum(e - s + 1 for s, e, _ in rows), 'sources': meta,
+               'firstSince': (EPOCH + dt.timedelta(days=first_since)).isoformat(),
+               'hist': {'since': (EPOCH + dt.timedelta(days=state['hist_since'])).isoformat(), 'days': HIST_DAYS, 'ranges': len(hist)}},
               open(os.path.join(OUT, 'risk.json'), 'w'), ensure_ascii=False, indent=1)
     with open(os.path.join(OUT, 'sources.csv'), 'w', newline='') as f:
         w = csv.writer(f); w.writerow(['start', 'end', 'sources', 'first_seen'])
