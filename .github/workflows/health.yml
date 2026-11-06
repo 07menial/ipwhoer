@@ -25,7 +25,7 @@ jobs:
           set -e
           last=$(gh api repos/$R/commits/data -q .commit.committer.date)
           age=$(( ( $(date -u +%s) - $(date -u -d "$last" +%s) ) / 3600 ))
-          bad=$(curl -fsSL https://raw.githubusercontent.com/$R/data/risk.json | python3 -c "import json,sys; d=json.load(sys.stdin); print(', '.join(s['name'] for s in d['sources'] if s.get('error') or not s.get('count')))")
+          bad=$(curl -fsSL https://raw.githubusercontent.com/$R/data/risk.json | python3 -c "import json,sys; d=json.load(sys.stdin); print(', '.join(s['name'] for s in d['sources'] if s.get('error') or not (s.get('count') or s.get('count6'))))")
           msg=""
           [ "$age" -gt 26 ] && msg="data 分支已 ${age} 小时未更新（上次 ${last}）。"
           [ -n "$bad" ] && msg="$msg 抓取失败或为空的来源：${bad}。"
