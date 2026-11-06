@@ -30,8 +30,8 @@ jobs:
                   if s != 200 or len(b) < 5000: bad.append(f'页面 {p} 返回 {s}，{len(b)} 字节')
               except Exception as e: bad.append(f'页面 {p} 打不开：{e}')
           # 查询源：随机 3 个公网 IP（避开缓存），某源 3 次都缺才报
-          # 只查免 key 必定可用的源。IPinfo 免 key 从 Cloudflare 出口一律 429（2026-11-05 实测），IPLocate 受额度熔断影响，iplocation.net 已去掉，都不算异常。
-          EXPECT = ['MaxMind GeoLite', 'IP.SB', 'ipapi.is', 'IPQuery', 'IP-API']
+          # 免 key 必定可用的源 + IPinfo（线上已配 IPINFO_KEY，2026-11-06 加回；免 key 从 Cloudflare 出口一律 429）。IPLocate 受额度熔断影响，iplocation.net 已去掉，都不算异常。
+          EXPECT = ['MaxMind GeoLite', 'IP.SB', 'ipapi.is', 'IPQuery', 'IP-API', 'IPinfo']
           seen = {}
           for _ in range(3):
               ip = f'{random.choice([1, 8, 9, 23, 45, 66, 77, 89, 104, 151, 185, 203])}.{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)}'

@@ -35,6 +35,7 @@ DIRECT = [
     'https://www.gstatic.com/ipranges/cloud_geofeed',
     'https://geoip.starlinkisp.net/feed.csv',
     'https://raw.githubusercontent.com/tmobile/tmus-geofeed/main/tmus-geo-ip.txt',  # T-Mobile US 官方仓库（Apache-2.0）
+    'https://www.hetzner.com/geofeed.csv',  # Hetzner 官网整份 feed（约 17 万条）；whois 只有 5 条 inetnum 引用它，按 RFC 9632 只收到 13 条，2a01:4f8::/32 等主段缺失（2026-11-06）
 ]
 ARIN_TSV = 'https://raw.githubusercontent.com/yehyakin/ipx-al-data/arin/arin.tsv'
 URL_RE = re.compile(r'https://\S+', re.I)

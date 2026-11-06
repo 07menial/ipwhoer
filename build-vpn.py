@@ -127,10 +127,12 @@ SCAN_NAMES = {'binaryedge.ninja': 'BinaryEdge', 'stretchoid.com': 'Stretchoid', 
 
 
 def scanners():
-    # stamparm/maltrail（MIT）整理的已知互联网扫描器 IP / 段，按注释里的域名归到扫描机构。只展示，不计分
+    # stamparm/maltrail（MIT）整理的已知互联网扫描器 IP，按注释里的域名归到扫描机构。只展示，不计分
+    # 只用 mass_scanner.txt（单个 IP）。mass_scanner_cidr.txt 是把每个 IP 扩到所在 /24（BinaryEdge 还有 /18–/22）的派生表，
+    # 扫描器租用的 DigitalOcean 等云段会被整段标成扫描器：2026-11-06 Atlas 复核时 28 个 DO 上的探针被标成 BinaryEdge。
     import re
     by = {}
-    for f in ('mass_scanner.txt', 'mass_scanner_cidr.txt'):
+    for f in ('mass_scanner.txt',):
         for l in get(GH + 'stamparm/maltrail/master/data/' + f).decode('utf-8', 'replace').splitlines():
             if not l.strip() or l.startswith('#'): continue
             ip, _, c = l.partition('#')
@@ -220,6 +222,10 @@ def main():
             if nw.version == 4:
                 items[4].append((int(nw.network_address), int(nw.broadcast_address), nw.prefixlen, cat << 16 | pi))
             else:
+                # vpn6.bin 只存高 64 位。Tor 中继、扫描器名单是单个主机地址，而 Linode、DigitalOcean 等是多台机器共用一个 /64，
+                # 存成 /64 会把邻居也标上（2026-11-06 Atlas 复核：119 个 v6 Tor 命中里 96 个并不是中继本身）。这两类只展示，v6 只收 ≤/64 的段
+                if cat in (4, 6) and nw.prefixlen > 64:
+                    continue
                 items[6].append((int(nw.network_address) >> 64, int(nw.broadcast_address) >> 64, min(nw.prefixlen, 64), cat << 16 | pi))
             n += 1
         counts[name] = n
