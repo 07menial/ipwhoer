@@ -3,6 +3,9 @@
 
 输出（写到 OUT 目录，默认 ./risk-data）：
   risk.bin   每条 16 字节小端：start u32, end u32, mask u32, first u32（首次出现，距 2026-01-01 的天数）
+  risk6.bin  IPv6（v2，2026-11-06 起）：16 字节头 u32[0xffffffff, 2, 10, 0]，之后每条 40 字节小端
+             start 4×u32（128 位，高位在前）, end 4×u32, mask u32, first u32。单个主机地址存完整 128 位，
+             不再扩成 /64；名单里本来就是网段的（DROPv6 等）照原网段。
   risk.json  元数据：来源列表（bit、名称、类别、链接、条数）、构建时间、区间数
   state.json.gz  首次出现时间状态（下次构建读取，保持 first 不变）
   sources.csv    可读版本（start,end,sources,first_seen）
@@ -38,17 +41,25 @@ def get(url):
         return r.read()
 
 
-CUR6 = []  # 当前来源解析出的 IPv6 区间（高 64 位），由 rng 顺手收集
+CUR6 = []  # 当前来源解析出的 IPv6 区间（完整 128 位），由 rng 顺手收集
+M64 = (1 << 64) - 1
 
 
 def rng6(tok):
     try:
         n = ipaddress.ip_network(tok, strict=False)
         if n.version != 6 or not n.is_global: return
-        if n.prefixlen > 64: n = n.supernet(new_prefix=64)
-        CUR6.append((int(n.network_address) >> 64, int(n.broadcast_address) >> 64))
+        # 单个主机（/128）或更小的段原样保留：共用 /64 的云（DO、Linode、OVH）上，邻居不再被连坐
+        CUR6.append((int(n.network_address), int(n.broadcast_address)))
     except ValueError:
         pass
+
+
+def old6(rs):
+    # state 里 2026-11-06 之前存的是高 64 位区间：换算成 128 位（整段 /64）
+    if rs and all(s <= M64 and e <= M64 for s, e in rs):
+        return [(s << 64, (e << 64) | M64) for s, e in rs]
+    return rs
 
 
 def rng(tok):
@@ -151,7 +162,7 @@ def main():
             err = (err or 'empty') + '（沿用上次数据）'
         r6 = list(CUR6)
         if not r6 and err and sid in state.get('_last6', {}):
-            r6 = [tuple(x) for x in state['_last6'][sid]]
+            r6 = old6([tuple(x) for x in state['_last6'][sid]])
         for s, e in rs:
             events.append((s, 0, bit)); events.append((e + 1, 1, bit))
         for s, e in r6:
@@ -188,12 +199,15 @@ def main():
         newfs[k] = f
         buf += struct.pack('<IIII', s, e, m, f)
     state['first'] = newfs
-    # IPv6：按 /64 粒度（高 64 位）同样扫一遍，risk6.bin 每条 24 字节 start_hi,start_lo,end_hi,end_lo,mask,first
+    # IPv6：完整 128 位扫一遍，risk6.bin v2（见文件头说明）
     rows6 = sweep(events6)
-    fs6, newfs6, buf6, M = state.get('first6', {}), {}, bytearray(), 0xffffffff
+    fs6, newfs6, M = state.get('first6', {}), {}, 0xffffffff
+    buf6 = bytearray(struct.pack('<IIII', M, 2, 10, 0))
+    w4 = lambda v: [(v >> s) & M for s in (96, 64, 32, 0)]
     for s6, e6, m in rows6:
-        k = f'{s6}-{e6}'; f = fs6.get(k, today); newfs6[k] = f
-        buf6 += struct.pack('<IIIIII', s6 >> 32, s6 & M, e6 >> 32, e6 & M, m, f)
+        # 首次出现：新键是 128 位区间；旧版按高 64 位记的键也认（换格式不重置日期）
+        k = f'{s6}-{e6}'; f = fs6.get(k, fs6.get(f'{s6 >> 64}-{e6 >> 64}', today)); newfs6[k] = f
+        buf6 += struct.pack('<10I', *w4(s6), *w4(e6), m, f)
     state['first6'] = newfs6
     open(os.path.join(OUT, 'risk6.bin'), 'wb').write(buf6)
     open(os.path.join(OUT, 'risk.bin'), 'wb').write(buf)
