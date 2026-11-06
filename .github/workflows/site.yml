@@ -1,5 +1,5 @@
 name: site-health
-# 每天体检 ipx.al：页面、查询源、探针节点、风险库接口。有问题开 issue「站点体检异常」，恢复后自动关闭。
+# 每天体检 ipx.al：页面、查询源、探针节点、风险库接口、DNS 泄漏测试。有问题开 issue「站点体检异常」，恢复后自动关闭。
 on:
   schedule:
     - cron: '53 1 * * *'
@@ -53,6 +53,30 @@ jobs:
               d = json.loads(get('/api/risk/185.220.101.1')[1])
               if not (d.get('library') or {}).get('listed'): bad.append('风险库接口没有命中已知 Tor 出口 185.220.101.1')
           except Exception as e: bad.append(f'风险库接口失败：{e}')
+          # DNS 泄漏测试（自有 ipx-dnsleak：dns4 → DE+LA 两台 NS，dns6 → DE）：随机 token 经公共解析器解析触发，再从 Worker 取回。
+          # 要求至少取回一个解析器 IP；x-ipx-dns-nodes 缺某台节点也报（冗余失效）。最多试 2 次。只用公开接口，不带任何密钥。
+          import subprocess, time
+          dns_err = None
+          for _ in range(2):
+              try:
+                  tok = get('/api/dnsid')[1].decode().strip()
+                  for rs in ['8.8.8.8', '1.1.1.1']:
+                      for z in ['dns4', 'dns6']:
+                          subprocess.run(['dig', '+time=4', '+tries=2', '@' + rs, f'h{random.randint(0, 999)}-{tok}.{z}.ipx.al', 'A'], capture_output=True, timeout=20)
+                  time.sleep(1)
+                  r = urllib.request.urlopen(urllib.request.Request('https://ipx.al/api/dnsleak/' + tok, headers=UA), timeout=30)
+                  d, nodes = json.loads(r.read()), (r.headers.get('x-ipx-dns-nodes') or '').split(',')
+                  ips = [x for x in d if isinstance(x, dict) and x.get('ip')] if isinstance(d, list) else []
+                  down = [n for n in ['de', 'la'] if n not in nodes]
+                  if not ips: dns_err = f'DNS 泄漏测试没取回任何解析器 IP（token {tok}，答复节点 {",".join(nodes) or "无"}）'
+                  elif not [x for x in ips if x.get('v') == 4]: dns_err = f'DNS 泄漏测试没取回 IPv4 解析器（token {tok}）'
+                  elif down: dns_err = 'DNS 泄漏测试节点未答复：' + '、'.join(down) + f'（结果仍取回 {len(ips)} 个解析器 IP，冗余失效）'
+                  else: dns_err = None
+              except Exception as e: dns_err = f'DNS 泄漏测试失败：{e}'
+              if not dns_err: break
+              time.sleep(5)
+          if dns_err: bad.append(dns_err)
+          else: print(f'dns ok: {len(ips)} resolver IPs, nodes {",".join(nodes)}')
           open('msg.txt', 'w').write('\n'.join('- ' + b for b in bad))
           print('\n'.join(bad) or 'all good')
           PY
